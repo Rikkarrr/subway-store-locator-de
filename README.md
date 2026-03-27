@@ -1,13 +1,13 @@
 # Subway Deutschland Scraper
 
-Ein kleines, sauber strukturiertes Python-Projekt zum Erfassen der oeffentlich gelisteten Subway-Filialen in Deutschland.
+Ein kleines, sauber strukturiertes Python-Projekt zum Erfassen der öffentlich gelisteten Subway-Filialen in Deutschland.
 
 Die Daten werden von der offiziellen Locator-Seite bezogen:
 
 - `https://restaurants.subway.com/germany`
 - `https://restaurants.subway.com/sitemap.xml`
 
-Der Scraper extrahiert pro Filiale, soweit verfuegbar:
+Der Scraper extrahiert pro Filiale, soweit verfügbar:
 
 - Name
 - Ort
@@ -25,13 +25,13 @@ Der Scraper extrahiert pro Filiale, soweit verfuegbar:
 
 Das Projekt versucht bewusst zuerst die leichtgewichtigen und stabileren Wege:
 
-1. Deutschland-URLs aus der oeffentlichen Sitemap laden
+1. Deutschland-URLs aus der öffentlichen Sitemap laden
 2. Falls die Sitemap nicht ausreicht, die Locator-Struktur hierarchisch crawlen
 3. Pro Detailseite eingebettete JSON-Daten aus dem HTML lesen
-4. Nur wenn noetig, Playwright als Browser-Fallback verwenden
+4. Nur wenn nötig, Playwright als Browser-Fallback verwenden
 5. Ergebnisse deduplizieren und als CSV und JSON speichern
 
-Das ist absichtlich kein grosses Framework, sondern ein uebersichtliches Scraper-Projekt mit klar getrennten Verantwortlichkeiten.
+Das ist absichtlich kein großes Framework, sondern ein übersichtliches Scraper-Projekt mit klar getrennten Verantwortlichkeiten.
 
 ## Schnellstart
 
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Optional fuer dynamische Seiten:
+Optional für dynamische Seiten:
 
 ```bash
 python -m playwright install chromium
@@ -85,9 +85,9 @@ subway_scraper/
 
 ## Grenzen
 
-Der Scraper erfasst die Filialen, die im offiziellen oeffentlichen Locator von Subway sichtbar sind. Wenn eine Filiale dort noch nicht gelistet ist oder temporaer fehlt, kann sie nicht mitgescraped werden.
+Der Scraper erfasst die Filialen, die im offiziellen öffentlichen Locator von Subway sichtbar sind. Wenn eine Filiale dort noch nicht gelistet ist oder temporär fehlt, kann sie nicht mitgescraped werden.
 
-Mit anderen Worten: Das Ziel ist nicht eine theoretische Vollstaendigkeit ueber alle real existierenden Filialen, sondern eine moeglichst vollstaendige Erfassung aller oeffentlich veroeffentlichten deutschen Standorte.
+Mit anderen Worten: Das Ziel ist nicht eine theoretische Vollständigkeit über alle real existierenden Filialen, sondern eine möglichst vollständige Erfassung aller öffentlich veröffentlichten deutschen Standorte.
 
 ## Tests
 

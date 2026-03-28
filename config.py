@@ -12,7 +12,8 @@ SITEMAP_INDEX_URL = f"{BASE_URL}/sitemap.xml"
 
 REQUEST_TIMEOUT = 30
 MAX_RETRIES = 3
-REQUEST_DELAY_SECONDS = 0.2
+REQUEST_DELAY_SECONDS = 0.05
+MAX_WORKERS = 16
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "

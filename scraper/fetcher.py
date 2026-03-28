@@ -1,7 +1,9 @@
 import logging
+import threading
 import time
 import xml.etree.ElementTree as ET
 from collections import deque
+from contextlib import suppress
 from typing import Iterable, List, Optional, Set
 from urllib.parse import urljoin, urlparse
 
@@ -14,6 +16,7 @@ from config import (
     BASE_URL,
     COUNTRY_PATH,
     COUNTRY_URL,
+    MAX_WORKERS,
     MAX_RETRIES,
     REQUEST_DELAY_SECONDS,
     REQUEST_TIMEOUT,
@@ -32,7 +35,12 @@ except ImportError:  # pragma: no cover - Umgebung abhaengig
 class SubwayFetcher:
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
-        self.session = self._build_session()
+        self._thread_local = threading.local()
+        self._session_lock = threading.Lock()
+        self._sessions: Set[requests.Session] = set()
+        self._playwright = None
+        self._browser = None
+        self._browser_lock = threading.Lock()
 
     def _build_session(self) -> requests.Session:
         session = requests.Session()
@@ -53,6 +61,15 @@ class SubwayFetcher:
                 "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
             }
         )
+        return session
+
+    def _get_session(self) -> requests.Session:
+        session = getattr(self._thread_local, "session", None)
+        if session is None:
+            session = self._build_session()
+            self._thread_local.session = session
+            with self._session_lock:
+                self._sessions.add(session)
         return session
 
     def discover_germany_urls(self) -> List[str]:
@@ -117,16 +134,24 @@ class SubwayFetcher:
         return sorted(discovered)
 
     def filter_detail_urls(self, urls: Iterable[str]) -> List[str]:
-        detail_urls: List[str] = []
-        for url in sorted(set(urls)):
+        normalized_urls = sorted(set(url.rstrip("/") for url in urls))
+        candidate_urls: List[str] = []
+
+        for url in normalized_urls:
             path = urlparse(url).path.rstrip("/")
             if not path.startswith(COUNTRY_PATH):
                 continue
 
             segment_count = len([part for part in path.split("/") if part])
             if segment_count >= 4:
-                detail_urls.append(url)
+                candidate_urls.append(url)
 
+        candidate_set = set(candidate_urls)
+        detail_urls = [
+            url
+            for url in candidate_urls
+            if not any(candidate.startswith(f"{url}/") for candidate in candidate_set if candidate != url)
+        ]
         return detail_urls
 
     def get_html(self, url: str) -> Optional[str]:
@@ -142,7 +167,7 @@ class SubwayFetcher:
 
     def fetch_text(self, url: str) -> Optional[str]:
         try:
-            response = self.session.get(url, timeout=REQUEST_TIMEOUT)
+            response = self._get_session().get(url, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
             time.sleep(REQUEST_DELAY_SECONDS)
             return response.text
@@ -159,18 +184,52 @@ class SubwayFetcher:
             return None
 
         try:
-            with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=True)
+            with self._browser_lock:
+                browser = self._ensure_browser()
+                if browser is None:
+                    return None
+
                 page = browser.new_page()
-                page.goto(url, wait_until="networkidle", timeout=45000)
-                content = page.content()
-                browser.close()
-                return content
+                try:
+                    page.goto(url, wait_until="networkidle", timeout=45000)
+                    return page.content()
+                finally:
+                    with suppress(Exception):
+                        page.close()
         except PlaywrightTimeoutError:
             self.logger.exception("Playwright-Timeout bei %s", url)
         except Exception:
             self.logger.exception("Playwright-Fehler bei %s", url)
         return None
+
+    def _ensure_browser(self):
+        if self._browser is not None:
+            return self._browser
+
+        self._playwright = sync_playwright().start()
+        self._browser = self._playwright.chromium.launch(headless=True)
+        return self._browser
+
+    def close(self) -> None:
+        with self._session_lock:
+            for session in self._sessions:
+                with suppress(Exception):
+                    session.close()
+            self._sessions.clear()
+
+        with self._browser_lock:
+            if self._browser is not None:
+                with suppress(Exception):
+                    self._browser.close()
+                self._browser = None
+            if self._playwright is not None:
+                with suppress(Exception):
+                    self._playwright.stop()
+                self._playwright = None
+
+    @staticmethod
+    def recommended_worker_count(detail_url_count: int) -> int:
+        return max(1, min(MAX_WORKERS, detail_url_count))
 
     def extract_germany_links(self, html: str, source_url: str) -> List[str]:
         soup = BeautifulSoup(html, "html.parser")

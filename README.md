@@ -56,7 +56,6 @@ Nach einem Lauf liegen die Dateien in `output/`:
 - `subway_deutschland_filialen_raw.json`
 - `scraper.log`
 
-Die CSV wird in UTF-8 geschrieben.
 
 ## Projektstruktur
 
